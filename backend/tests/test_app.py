@@ -1,4 +1,5 @@
 import pytest
+from fastapi import HTTPException
 from fastapi.testclient import TestClient
 
 from app.main import create_app
@@ -46,3 +47,26 @@ def test_app_has_cors_middleware(monkeypatch):
         None,
     )
     assert origins == ["https://example.com", "https://another.com"]
+
+
+def test_enhance_endpoint_success(monkeypatch, client: TestClient):
+    async def fake_enhance_text(*, text, instructions=None, model=None):
+        assert text == "hello"
+        return {"original": text, "enhanced": "HELLO"}
+
+    monkeypatch.setattr("app.main.enhance_with_mcp", fake_enhance_text)
+
+    response = client.post("/api/enhance", json={"text": "hello"})
+    assert response.status_code == 200
+    assert response.json() == {"original": "hello", "enhanced": "HELLO"}
+
+
+def test_enhance_endpoint_error(monkeypatch, client: TestClient):
+    async def fake_enhance_text(*, text, instructions=None, model=None):
+        raise HTTPException(status_code=502, detail="llm down")
+
+    monkeypatch.setattr("app.main.enhance_with_mcp", fake_enhance_text)
+
+    response = client.post("/api/enhance", json={"text": "hello"})
+    assert response.status_code == 502
+    assert response.json()["detail"] == "llm down"
