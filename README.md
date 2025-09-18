@@ -261,7 +261,7 @@ Build and run (note: MCP via stdio in a container requires appropriate stdio wir
 ### CLI shortcut for local testing
 - Ensure `.venv-mcp` is set up: `make setup-mcp PYTHON_BIN=/opt/homebrew/opt/python@3.11/bin/python3.11`
 - Set env vars (`LLM_PROVIDER`, API keys, `DATABASE_URL`)
-  - For local Ollama: `export LLM_PROVIDER=ollama` (and optionally `OLLAMA_MODEL=llama3.1`, etc.)
+- For local Ollama: `export LLM_PROVIDER=ollama` (and optionally `OLLAMA_MODEL=llama3.1`, etc.)
 - Run CLI commands, e.g.:
-  - `PYTHONPATH=mcp-server .venv-mcp/bin/python mcp-server/scripts/mcp_cli.py enhance-text "Some raw content"`
+  - `scripts/enrich_with_mcp.sh "Some raw content"`
   - `PYTHONPATH=mcp-server .venv-mcp/bin/python mcp-server/scripts/mcp_cli.py enhance-message 42`
