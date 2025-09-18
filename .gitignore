@@ -15,6 +15,7 @@ dist/
 # Env
 .env
 .env.*
+!.env.example
 
 # Alembic
 backend/alembic/versions/*.pyc

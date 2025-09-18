@@ -216,12 +216,16 @@ Environment variables:
 - `DATABASE_URL` – required for DB tools
 - `BACKEND_URL` – defaults to `http://localhost:8000` for `health`
 - `BACKEND_DIR` – path to `backend/` for Alembic (defaults to `<repo>/backend` when run in repo root)
- - `LLM_PROVIDER` – one of `openai`, `anthropic`, `openrouter`, `azure_openai` (default: `openai`)
+- `LLM_PROVIDER` – one of `openai`, `anthropic`, `openrouter`, `azure_openai`, `ollama` (default: `openai`)
  - `LLM_MODEL` – default model (e.g., `gpt-4o-mini`, `claude-3-5-sonnet-20240620`)
  - For OpenAI: `OPENAI_API_KEY`
  - For Anthropic: `ANTHROPIC_API_KEY`
- - For OpenRouter: `OPENROUTER_API_KEY`
- - For Azure OpenAI: `AZURE_OPENAI_API_KEY`, `AZURE_OPENAI_ENDPOINT`, `AZURE_OPENAI_DEPLOYMENT`, optional `AZURE_OPENAI_API_VERSION`
+- For OpenRouter: `OPENROUTER_API_KEY`
+- For Azure OpenAI: `AZURE_OPENAI_API_KEY`, `AZURE_OPENAI_ENDPOINT`, `AZURE_OPENAI_DEPLOYMENT`, optional `AZURE_OPENAI_API_VERSION`
+- For Ollama (local LLM):
+  - Install and run [Ollama](https://ollama.com/) locally (`brew install ollama`, `ollama serve`)
+  - Pull a model (e.g., `ollama pull llama3`)
+  - Optional envs: `OLLAMA_ENDPOINT` (default `http://localhost:11434`), `OLLAMA_MODEL` (default `llama3`), `OLLAMA_OPTIONS` (JSON for generation options)
 
 ### Example client configuration (Claude Desktop)
 Add to your Claude Desktop `mcp.json`:
@@ -257,6 +261,7 @@ Build and run (note: MCP via stdio in a container requires appropriate stdio wir
 ### CLI shortcut for local testing
 - Ensure `.venv-mcp` is set up: `make setup-mcp PYTHON_BIN=/opt/homebrew/opt/python@3.11/bin/python3.11`
 - Set env vars (`LLM_PROVIDER`, API keys, `DATABASE_URL`)
+  - For local Ollama: `export LLM_PROVIDER=ollama` (and optionally `OLLAMA_MODEL=llama3.1`, etc.)
 - Run CLI commands, e.g.:
   - `PYTHONPATH=mcp-server .venv-mcp/bin/python mcp-server/scripts/mcp_cli.py enhance-text "Some raw content"`
   - `PYTHONPATH=mcp-server .venv-mcp/bin/python mcp-server/scripts/mcp_cli.py enhance-message 42`

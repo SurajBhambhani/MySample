@@ -112,6 +112,27 @@ async def _llm_chat(messages: List[Dict[str, str]], *, model: Optional[str] = No
             data = resp.json()
             return data["choices"][0]["message"]["content"].strip()
 
+        elif provider == "ollama":
+            endpoint = os.getenv("OLLAMA_ENDPOINT", "http://localhost:11434").rstrip("/")
+            model_name = model or os.getenv("OLLAMA_MODEL", "llama3")
+            payload: Dict[str, Any] = {
+                "model": model_name,
+                "messages": messages,
+            }
+            options = os.getenv("OLLAMA_OPTIONS")
+            if options:
+                try:
+                    payload["options"] = json.loads(options)
+                except json.JSONDecodeError:
+                    pass
+            resp = await client.post(f"{endpoint}/api/chat", json=payload)
+            resp.raise_for_status()
+            data = resp.json()
+            message = data.get("message", {}).get("content")
+            if not message:
+                raise LLMError("Ollama response missing message content")
+            return message.strip()
+
         elif provider == "azure_openai":
             api_key = os.getenv("AZURE_OPENAI_API_KEY")
             endpoint = os.getenv("AZURE_OPENAI_ENDPOINT")
