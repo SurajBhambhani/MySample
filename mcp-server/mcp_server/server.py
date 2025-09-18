@@ -119,6 +119,7 @@ async def _llm_chat(messages: List[Dict[str, str]], *, model: Optional[str] = No
                 "model": model_name,
                 "messages": messages,
             }
+            payload["stream"] = False
             options = os.getenv("OLLAMA_OPTIONS")
             if options:
                 try:
