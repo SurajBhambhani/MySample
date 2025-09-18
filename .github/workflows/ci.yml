@@ -1,0 +1,58 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  test-backend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install backend dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r backend/requirements.txt
+      - name: Run backend tests
+        env:
+          DATABASE_URL: postgresql+psycopg2://user:pass@localhost:5432/db
+        run: pytest -q backend/tests
+
+  build-images:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      - name: Build backend (prod)
+        run: docker build --target prod -t sample-backend:ci -f backend/Dockerfile .
+      - name: Build frontend (prod)
+        run: docker build --target prod -t sample-frontend:ci -f frontend/Dockerfile .
+      - name: Build MCP server image
+        run: docker build -t sample-mcp:ci -f mcp-server/Dockerfile .
+
+  # push-images:
+  #   needs: [build-images, test-backend]
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #     - name: Login to GHCR
+  #       uses: docker/login-action@v3
+  #       with:
+  #         registry: ghcr.io
+  #         username: ${{ github.actor }}
+  #         password: ${{ secrets.GITHUB_TOKEN }}
+  #     - name: Build and push backend
+  #       run: |
+  #         docker build --target prod -t ghcr.io/${{ github.repository }}/backend:latest -f backend/Dockerfile .
+  #         docker push ghcr.io/${{ github.repository }}/backend:latest
+  #     - name: Build and push frontend
+  #       run: |
+  #         docker build --target prod -t ghcr.io/${{ github.repository }}/frontend:latest -f frontend/Dockerfile .
+  #         docker push ghcr.io/${{ github.repository }}/frontend:latest
