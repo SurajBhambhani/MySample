@@ -251,5 +251,12 @@ Build and run (note: MCP via stdio in a container requires appropriate stdio wir
 ### Examples
 - Enhance arbitrary text: call tool `enhance_text` with `{ "text": "raw message..." }`.
 - Enhance last 5 DB messages: call tool `enhance_recent_messages` with `{ "limit": 5 }`.
- - Enhance one DB message and store: `enhance_message_and_store` with `{ "source_id": 42 }`.
- - List stored enhancements for a message: `list_enhanced_for_message` with `{ "source_id": 42 }`.
+- Enhance one DB message and store: `enhance_message_and_store` with `{ "source_id": 42 }`.
+- List stored enhancements for a message: `list_enhanced_for_message` with `{ "source_id": 42 }`.
+
+### CLI shortcut for local testing
+- Ensure `.venv-mcp` is set up: `make setup-mcp PYTHON_BIN=/opt/homebrew/opt/python@3.11/bin/python3.11`
+- Set env vars (`LLM_PROVIDER`, API keys, `DATABASE_URL`)
+- Run CLI commands, e.g.:
+  - `PYTHONPATH=mcp-server .venv-mcp/bin/python mcp-server/scripts/mcp_cli.py enhance-text "Some raw content"`
+  - `PYTHONPATH=mcp-server .venv-mcp/bin/python mcp-server/scripts/mcp_cli.py enhance-message 42`

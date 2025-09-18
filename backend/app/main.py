@@ -21,8 +21,8 @@ def create_app() -> FastAPI:
     app = FastAPI(title="FastAPI + React Sample", version="0.1.0")
 
     # CORS
-    if settings.cors_origins:
-        origins = [o.strip() for o in settings.cors_origins] if isinstance(settings.cors_origins, list) else ["*"]
+    origins = settings.cors_origins
+    if origins:
         app.add_middleware(
             CORSMiddleware,
             allow_origins=origins,
@@ -43,4 +43,3 @@ def create_app() -> FastAPI:
 
 
 app = create_app()
-

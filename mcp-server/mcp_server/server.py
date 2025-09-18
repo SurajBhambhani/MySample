@@ -4,20 +4,19 @@ import os
 import re
 import shlex
 import subprocess
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 
 import httpx
 import psycopg2
 from dotenv import load_dotenv
 from psycopg2.extras import RealDictCursor
 
-from mcp.server import Server
-from mcp.server.stdio import stdio_server
+from mcp.server import FastMCP
 
 
 load_dotenv()
 
-server = Server("sample-mcp-server")
+mcp = FastMCP(name="sample-mcp-server")
 
 
 def _db_connect():
@@ -134,10 +133,7 @@ async def _llm_chat(messages: List[Dict[str, str]], *, model: Optional[str] = No
             raise LLMError(f"Unsupported LLM_PROVIDER: {provider}")
 
 
-@server.tool(
-    "health",
-    description="Checks backend /healthz endpoint and returns status",
-)
+@mcp.tool(name="health", description="Checks backend /healthz endpoint and returns status")
 async def health() -> str:
     backend_url = os.getenv("BACKEND_URL", "http://localhost:8000")
     try:
@@ -149,28 +145,12 @@ async def health() -> str:
         return json.dumps({"status": "error", "error": str(e)})
 
 
-@server.tool(
-    "echo",
-    description="Echo a message and the length",
-    input_schema={
-        "type": "object",
-        "properties": {"message": {"type": "string"}},
-        "required": ["message"],
-    },
-)
+@mcp.tool(name="echo", description="Echo a message and the length")
 async def echo(message: str) -> str:
     return json.dumps({"message": message, "length": len(message)})
 
 
-@server.tool(
-    "db_query",
-    description="Run a read-only SQL query (SELECT only) and return rows as JSON",
-    input_schema={
-        "type": "object",
-        "properties": {"sql": {"type": "string"}},
-        "required": ["sql"],
-    },
-)
+@mcp.tool(name="db_query", description="Run a read-only SQL query (SELECT only) and return rows as JSON")
 async def db_query(sql: str) -> str:
     if not re.match(r"^\s*select\s", sql, re.IGNORECASE):
         return json.dumps({"error": "Only SELECT queries are allowed"})
@@ -181,15 +161,7 @@ async def db_query(sql: str) -> str:
             return json.dumps(rows, default=str)
 
 
-@server.tool(
-    "db_insert_echo",
-    description="Insert a row into echo_messages table with given content",
-    input_schema={
-        "type": "object",
-        "properties": {"content": {"type": "string"}},
-        "required": ["content"],
-    },
-)
+@mcp.tool(name="db_insert_echo", description="Insert a row into echo_messages table with given content")
 async def db_insert_echo(content: str) -> str:
     with _db_connect() as conn:
         with conn.cursor() as cur:
@@ -214,76 +186,49 @@ def _run(cmd: List[str], cwd: Optional[str] = None, env: Optional[Dict[str, str]
     return json.dumps({"ok": True, "stdout": out})
 
 
-@server.tool(
-    "alembic_upgrade",
-    description="Run Alembic migrations (upgrade head) in backend/",
-)
+@mcp.tool(name="alembic_upgrade", description="Run Alembic migrations (upgrade head) in backend/")
 async def alembic_upgrade() -> str:
     backend_dir = os.getenv("BACKEND_DIR", os.path.join(os.getcwd(), "backend"))
     env = {"DATABASE_URL": os.getenv("DATABASE_URL", "")}
     return _run(["alembic", "upgrade", "head"], cwd=backend_dir, env=env)
 
 
-@server.tool(
-    "compose_up_dev",
-    description="docker compose up -d --build for dev stack",
-)
+@mcp.tool(name="compose_up_dev", description="docker compose up -d --build for dev stack")
 async def compose_up_dev() -> str:
     infra_dir = os.path.join(os.getcwd(), "infra")
     return _run(["docker", "compose", "-f", "docker-compose.dev.yml", "up", "-d", "--build"], cwd=infra_dir)
 
 
-@server.tool(
-    "compose_down_dev",
-    description="docker compose down for dev stack",
-)
+@mcp.tool(name="compose_down_dev", description="docker compose down for dev stack")
 async def compose_down_dev() -> str:
     infra_dir = os.path.join(os.getcwd(), "infra")
     return _run(["docker", "compose", "-f", "docker-compose.dev.yml", "down"], cwd=infra_dir)
 
 
-@server.tool(
-    "compose_logs_dev",
-    description="docker compose logs --tail=100 for dev stack",
-)
+@mcp.tool(name="compose_logs_dev", description="docker compose logs --tail=100 for dev stack")
 async def compose_logs_dev() -> str:
     infra_dir = os.path.join(os.getcwd(), "infra")
     return _run(["docker", "compose", "-f", "docker-compose.dev.yml", "logs", "--tail", "100"], cwd=infra_dir)
 
 
-@server.tool(
-    "compose_up_prod",
-    description="docker compose up -d --build for prod stack",
-)
+@mcp.tool(name="compose_up_prod", description="docker compose up -d --build for prod stack")
 async def compose_up_prod() -> str:
     infra_dir = os.path.join(os.getcwd(), "infra")
     return _run(["docker", "compose", "-f", "docker-compose.prod.yml", "up", "-d", "--build"], cwd=infra_dir)
 
 
-@server.tool(
-    "compose_down_prod",
-    description="docker compose down for prod stack",
-)
+@mcp.tool(name="compose_down_prod", description="docker compose down for prod stack")
 async def compose_down_prod() -> str:
     infra_dir = os.path.join(os.getcwd(), "infra")
     return _run(["docker", "compose", "-f", "docker-compose.prod.yml", "down"], cwd=infra_dir)
 
 
-@server.tool(
-    "enhance_message_and_store",
+@mcp.tool(
+    name="enhance_message_and_store",
     description=(
         "Fetch a message by id from echo_messages, enhance it with the LLM, "
         "and store the result in echo_messages_enhanced. Returns new enhanced id."
     ),
-    input_schema={
-        "type": "object",
-        "properties": {
-            "source_id": {"type": "integer"},
-            "instructions": {"type": "string"},
-            "model": {"type": "string"}
-        },
-        "required": ["source_id"],
-    },
 )
 async def enhance_message_and_store(source_id: int, instructions: Optional[str] = None, model: Optional[str] = None) -> str:
     # Read original content
@@ -318,18 +263,7 @@ async def enhance_message_and_store(source_id: int, instructions: Optional[str] 
     return json.dumps({"source_id": source_id, "enhanced_id": new_id, "enhanced_content": enhanced})
 
 
-@server.tool(
-    "list_enhanced_for_message",
-    description="List enhanced records for a given echo_messages.id",
-    input_schema={
-        "type": "object",
-        "properties": {
-            "source_id": {"type": "integer"},
-            "limit": {"type": "integer", "minimum": 1, "maximum": 100}
-        },
-        "required": ["source_id"],
-    },
-)
+@mcp.tool(name="list_enhanced_for_message", description="List enhanced records for a given echo_messages.id")
 async def list_enhanced_for_message(source_id: int, limit: int = 10) -> str:
     with _db_connect() as conn:
         with conn.cursor() as cur:
@@ -346,19 +280,7 @@ async def list_enhanced_for_message(source_id: int, limit: int = 10) -> str:
             rows = cur.fetchall()
             return json.dumps(rows, default=str)
 
-@server.tool(
-    "enhance_text",
-    description="Use LLM to rewrite text to be clearer and more readable",
-    input_schema={
-        "type": "object",
-        "properties": {
-            "text": {"type": "string"},
-            "instructions": {"type": "string"},
-            "model": {"type": "string"}
-        },
-        "required": ["text"],
-    },
-)
+@mcp.tool(name="enhance_text", description="Use LLM to rewrite text to be clearer and more readable")
 async def enhance_text(text: str, instructions: Optional[str] = None, model: Optional[str] = None) -> str:
     system = instructions or "Rewrite the user's text to be clearer, concise, and readable without changing meaning."
     messages = [
@@ -372,20 +294,11 @@ async def enhance_text(text: str, instructions: Optional[str] = None, model: Opt
         return json.dumps({"error": str(e)})
 
 
-@server.tool(
-    "enhance_recent_messages",
+@mcp.tool(
+    name="enhance_recent_messages",
     description="Fetch recent echo_messages from DB and ask LLM to produce a readable summary/clarification",
-    input_schema={
-        "type": "object",
-        "properties": {
-            "limit": {"type": "integer", "minimum": 1, "maximum": 100},
-            "style": {"type": "string"},
-            "model": {"type": "string"}
-        },
-        "required": ["limit"],
-    },
 )
-async def enhance_recent_messages(limit: int, style: Optional[str] = None, model: Optional[str] = None) -> str:
+async def enhance_recent_messages(limit: int = 5, style: Optional[str] = None, model: Optional[str] = None) -> str:
     # Pull last N messages from DB
     with _db_connect() as conn:
         with conn.cursor() as cur:
@@ -415,10 +328,9 @@ async def enhance_recent_messages(limit: int, style: Optional[str] = None, model
         return json.dumps({"items": rows, "error": str(e)}, default=str)
 
 
-async def main() -> None:
-    async with stdio_server() as (read_stream, write_stream):
-        await server.run(read_stream, write_stream)
+def main() -> None:
+    mcp.run(transport="stdio")
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    main()
