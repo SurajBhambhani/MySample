@@ -38,7 +38,7 @@ A production-ready sample showing how to build and deploy a FastAPI backend, a R
 
 ## Architecture
 
-This project follows a classic three-tier architecture, containerized with Docker for consistent development and production environments.
+This project follows a classic three-tier architecture, augmented with a Management and Control Plane (MCP) server, and containerized with Docker for consistent development and production environments.
 
 ```mermaid
 graph TD
@@ -58,14 +58,24 @@ graph TD
         D(PostgreSQL Database)
     end
 
+    subgraph "Management & Tools"
+        E(MCP Server)
+    end
+
     A -- "HTTP/S Requests" --> B
     B -- "API Calls (e.g., /api/data)" --> C
     C -- "Database Queries" --> D
+
+    E -- "Health Checks / DB Tools" --> C
+    E -- "DB Access" --> D
+    E -- "LLM Services" --> F[External LLM Provider]
 
     style A fill:#ADD8E6,stroke:#333,stroke-width:2px
     style B fill:#90EE90,stroke:#333,stroke-width:2px
     style C fill:#FFD700,stroke:#333,stroke-width:2px
     style D fill:#FFB6C1,stroke:#333,stroke-width:2px
+    style E fill:#DDA0DD,stroke:#333,stroke-width:2px
+    style F fill:#C0C0C0,stroke:#333,stroke-width:2px
 ```
 
 -   **Frontend:** A React application built with Vite.
@@ -79,7 +89,7 @@ graph TD
 -   **Web Server:**
     -   In development, the Vite dev server is used.
     -   In production, Nginx serves the static frontend files and acts as a reverse proxy for the backend API.
--   **MCP Server:** A separate Python server that provides a set of tools for interacting with the project, including health checks, database operations, and more.
+-   **MCP Server:** A separate Python server that provides a set of tools for interacting with the project, including health checks, database operations, and integration with external LLM providers.
 
 This setup ensures that the development environment closely mirrors the production environment, reducing the risk of "it works on my machine" issues.
 
