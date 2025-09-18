@@ -12,16 +12,37 @@ def client():
 
 
 def test_healthz(client: TestClient):
-    r = client.get("/healthz")
-    assert r.status_code == 200
-    assert r.json()["status"] == "ok"
+    response = client.get("/healthz")
+    assert response.status_code == 200
+    assert response.json()["status"] == "ok"
 
 
-def test_echo(client: TestClient):
+def test_echo_round_trip(client: TestClient):
     payload = {"message": "hello"}
-    r = client.post("/api/echo", json=payload)
-    assert r.status_code == 200
-    data = r.json()
-    assert data["message"] == "hello"
-    assert data["length"] == 5
+    response = client.post("/api/echo", json=payload)
+    assert response.status_code == 200
+    data = response.json()
+    assert data == {"message": "hello", "length": 5}
 
+
+def test_echo_requires_message_field(client: TestClient):
+    response = client.post("/api/echo", json={})
+    assert response.status_code == 422
+    detail = response.json()["detail"][0]
+    assert detail["loc"][-1] == "message"
+    assert detail["type"] == "missing"
+
+
+def test_app_has_cors_middleware(monkeypatch):
+    monkeypatch.setenv("DATABASE_URL", "sqlite:///:memory:")
+    monkeypatch.setenv("CORS_ORIGINS", "https://example.com, https://another.com")
+
+    from app.config import get_settings
+
+    get_settings.cache_clear()
+    app = create_app()
+    origins = next(
+        (middleware.kwargs.get("allow_origins") for middleware in app.user_middleware if middleware.cls.__name__ == "CORSMiddleware"),
+        None,
+    )
+    assert origins == ["https://example.com", "https://another.com"]

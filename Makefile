@@ -25,7 +25,7 @@ help:
 setup:
 	$(PYTHON_BIN) -m venv .venv
 	.venv/bin/python -m pip install --upgrade pip
-	.venv/bin/pip install -r backend/requirements.txt
+	.venv/bin/pip install -r backend/requirements.txt -r mcp-server/requirements.txt
 	@echo "\nBackend setup complete. Activate: source .venv/bin/activate"
 
 setup-mcp:
@@ -55,7 +55,7 @@ run-mcp:
 	.venv-mcp/bin/python -m mcp_server.server
 
 test:
-	.venv/bin/pytest -q backend/tests
+	.venv/bin/pytest -q backend/tests mcp-server/tests
 
 clean-venv:
 	rm -rf .venv
