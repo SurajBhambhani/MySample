@@ -26,6 +26,9 @@ class EnhanceIn(BaseModel):
 class EnhanceOut(BaseModel):
     original: str
     enhanced: str
+    message_id: int
+    enhanced_id: int
+    processing: Dict[str, Any]
 
 
 def create_app() -> FastAPI:

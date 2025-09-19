@@ -52,13 +52,25 @@ def test_app_has_cors_middleware(monkeypatch):
 def test_enhance_endpoint_success(monkeypatch, client: TestClient):
     async def fake_enhance_text(*, text, instructions=None, model=None):
         assert text == "hello"
-        return {"original": text, "enhanced": "HELLO"}
+        return {
+            "message_id": 1,
+            "enhanced_id": 10,
+            "original": text,
+            "enhanced": "HELLO",
+            "processing": {"instructions": "Rewrite", "model": model, "provider": "ollama"},
+        }
 
     monkeypatch.setattr("app.main.enhance_with_mcp", fake_enhance_text)
 
     response = client.post("/api/enhance", json={"text": "hello"})
     assert response.status_code == 200
-    assert response.json() == {"original": "hello", "enhanced": "HELLO"}
+    assert response.json() == {
+        "message_id": 1,
+        "enhanced_id": 10,
+        "original": "hello",
+        "enhanced": "HELLO",
+        "processing": {"instructions": "Rewrite", "model": None, "provider": "ollama"},
+    }
 
 
 def test_enhance_endpoint_error(monkeypatch, client: TestClient):

@@ -256,8 +256,8 @@ These instructions assume you are using [Homebrew](https://brew.sh/) for package
 ## MCP Server (Python)
 This repo includes a Python MCP server that exposes:
 - Tools: `health`, `echo`, `db_query` (SELECT-only), `db_insert_echo`, `alembic_upgrade`, `compose_up_dev`, `compose_down_dev`, `compose_logs_dev`, `compose_up_prod`, `compose_down_prod`.
-  - LLM tools: `enhance_text`, `enhance_recent_messages`
-  - Persistence tools: `enhance_message_and_store`, `list_enhanced_for_message`
+  - LLM tools: `enhance_text`, `enhance_text_and_store`, `enhance_recent_messages`
+  - Persistence tools: `enhance_message_and_store`, `enhance_text_and_store`, `list_enhanced_for_message`
 
 ### Run MCP Server (locally)
 - Prereqs: Python 3.11+
@@ -307,6 +307,7 @@ Build and run (note: MCP via stdio in a container requires appropriate stdio wir
 
 ### Examples
 - Enhance arbitrary text: call tool `enhance_text` with `{ "text": "raw message..." }`.
+- Enhance and persist a new message: call `enhance_text_and_store` with `{ "text": "raw message..." }`.
 - Enhance last 5 DB messages: call tool `enhance_recent_messages` with `{ "limit": 5 }`.
 - Enhance one DB message and store: `enhance_message_and_store` with `{ "source_id": 42 }`.
 - List stored enhancements for a message: `list_enhanced_for_message` with `{ "source_id": 42 }`

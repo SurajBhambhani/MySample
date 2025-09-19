@@ -216,6 +216,76 @@ async def enhance_text(text: str, instructions: Optional[str] = None, model: Opt
 
 
 @mcp.tool(
+    name="enhance_text_and_store",
+    description="Insert a message into echo_messages, enhance it, and store the enriched content with processing metadata.",
+)
+async def enhance_text_and_store(
+    text: str,
+    instructions: Optional[str] = None,
+    model: Optional[str] = None,
+) -> str:
+    system = instructions or "Rewrite the user's text to be clearer, concise, and readable without changing meaning."
+    try:
+        message_row = _database().execute(
+            "INSERT INTO echo_messages(content, created_at) VALUES (%s, NOW()) RETURNING id",
+            (text,),
+            returning=True,
+        )
+    except Exception as exc:
+        return _json_error(exc)
+
+    messages = [
+        {"role": "system", "content": system},
+        {"role": "user", "content": text},
+    ]
+    try:
+        enhanced = await _llm_chat(messages, model=model)
+    except Exception as exc:
+        return json.dumps(
+            {
+                "message_id": message_row["id"],
+                "original": text,
+                "error": str(exc),
+            }
+        )
+
+    processing_details = {
+        "instructions": system,
+        "model": model,
+        "provider": os.getenv("LLM_PROVIDER", "openai"),
+    }
+
+    payload = json.dumps({"enhanced": enhanced, "processing": processing_details})
+
+    try:
+        enhanced_row = _database().execute(
+            "INSERT INTO echo_messages_enhanced (source_message_id, enhanced_content) VALUES (%s, %s) RETURNING id",
+            (message_row["id"], payload),
+            returning=True,
+        )
+    except Exception as exc:
+        return json.dumps(
+            {
+                "message_id": message_row["id"],
+                "original": text,
+                "enhanced": enhanced,
+                "processing": processing_details,
+                "error": str(exc),
+            }
+        )
+
+    return json.dumps(
+        {
+            "message_id": message_row["id"],
+            "enhanced_id": enhanced_row["id"],
+            "original": text,
+            "enhanced": enhanced,
+            "processing": processing_details,
+        }
+    )
+
+
+@mcp.tool(
     name="enhance_recent_messages",
     description="Fetch recent echo_messages from DB and ask LLM to produce a readable summary/clarification",
 )

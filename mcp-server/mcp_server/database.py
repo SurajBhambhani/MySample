@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from contextlib import contextmanager
+import re
 from typing import Any, Optional, Sequence
 
 import psycopg2
@@ -19,7 +20,19 @@ class Database:
     def __init__(self, url: str) -> None:
         if not url:
             raise DatabaseError("DATABASE_URL must be configured for MCP server")
-        self._url = url
+        self._url = self._normalise_url(url)
+
+    @staticmethod
+    def _normalise_url(url: str) -> str:
+        """Translate SQLAlchemy-style URLs (e.g., postgresql+psycopg2://) to psycopg2 DSN."""
+
+        match = re.match(r"^(?P<scheme>[a-zA-Z0-9+]+)://", url)
+        if match:
+            scheme = match.group("scheme")
+            if "+" in scheme:
+                primary = scheme.split("+", 1)[0]
+                return url.replace(f"{scheme}://", f"{primary}://", 1)
+        return url
 
     @contextmanager
     def connection(self):

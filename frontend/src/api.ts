@@ -7,7 +7,17 @@ export const api = axios.create({ baseURL })
 
 export type EchoResponse = { message: string; length: number }
 export type EnhanceRequest = { text: string; instructions?: string; model?: string }
-export type EnhanceResponse = { original: string; enhanced: string }
+export type EnhanceResponse = {
+  message_id: number
+  enhanced_id: number
+  original: string
+  enhanced: string
+  processing: {
+    instructions: string
+    model: string | null
+    provider: string
+  }
+}
 
 export async function echo(message: string): Promise<EchoResponse> {
   const res = await api.post<EchoResponse>('/api/echo', { message })

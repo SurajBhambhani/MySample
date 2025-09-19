@@ -22,9 +22,9 @@ except ModuleNotFoundError as exc:  # pragma: no cover - defensive
 async def enhance_text(
     *, text: str, instructions: Optional[str] = None, model: Optional[str] = None
 ) -> Dict[str, Any]:
-    """Proxy to the MCP server's enhance_text tool and parse its JSON output."""
+    """Proxy to the MCP server's enhance_text_and_store tool and parse its JSON output."""
 
-    raw = await mcp_server.enhance_text(text=text, instructions=instructions, model=model)
+    raw = await mcp_server.enhance_text_and_store(text=text, instructions=instructions, model=model)
     data = json.loads(raw)
 
     if "error" in data:
