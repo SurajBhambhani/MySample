@@ -6,7 +6,8 @@ from typing import Any, Dict, Optional
 from fastapi import HTTPException
 
 
-MCP_ROOT = Path(__file__).resolve().parents[2] / "mcp-server"
+REPO_ROOT = Path(__file__).resolve().parents[3]
+MCP_ROOT = REPO_ROOT / "mcp-server"
 if MCP_ROOT.exists() and str(MCP_ROOT) not in sys.path:
     sys.path.insert(0, str(MCP_ROOT))
 
