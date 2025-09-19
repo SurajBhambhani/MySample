@@ -30,7 +30,7 @@ class EnhanceOut(BaseModel):
 
 def create_app() -> FastAPI:
     settings = get_settings()
-    app = FastAPI(title="FastAPI + React Sample", version="0.1.0")
+    app = FastAPI(title="MCP Relay", version="0.1.0")
 
     # CORS
     origins = settings.cors_origins

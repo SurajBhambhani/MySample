@@ -1,6 +1,6 @@
-# FastAPI + React (Vite + TS) + Postgres Sample
+# MCP Relay
 
-A production-ready sample showing how to build and deploy a FastAPI backend, a React (Vite + TypeScript) frontend, and a PostgreSQL database, with Docker support for development and production.
+MCP Relay is a production-ready starter that combines a FastAPI backend, a React (Vite + TypeScript) frontend, and a PostgreSQL database, with Docker support for development and production.
 
 ## Tech Stack
 - Backend: FastAPI, SQLAlchemy, Alembic, Pydantic Settings, Uvicorn/Gunicorn
@@ -17,9 +17,9 @@ A production-ready sample showing how to build and deploy a FastAPI backend, a R
 - `.env.example` – Example environment variables
 - `mcp-server/` – Python MCP server exposing health, echo, DB, and infra tools
 
-# FastAPI + React (Vite + TS) + Postgres Sample
+# MCP Relay
 
-A production-ready sample showing how to build and deploy a FastAPI backend, a React (Vite + TypeScript) frontend, and a PostgreSQL database, with Docker support for development and production.
+MCP Relay is a production-ready starter that combines a FastAPI backend, a React (Vite + TypeScript) frontend, and a PostgreSQL database, with Docker support for development and production.
 
 ## Tech Stack
 - Backend: FastAPI, SQLAlchemy, Alembic, Pydantic Settings, Uvicorn/Gunicorn
@@ -251,7 +251,7 @@ These instructions assume you are using [Homebrew](https://brew.sh/) for package
 
 ## Notes
 - In dev, the frontend dev server proxies API requests to the backend container; in prod, Nginx inside the frontend image serves the built app and proxies `/api` to the backend service.
-- The sample includes an `echo_messages` table and Alembic migration as a template; the app doesn’t persist echoes by default to keep the sample simple.
+- MCP Relay includes an `echo_messages` table and Alembic migration as a template; the app doesn’t persist echoes by default to keep the starter simple.
 
 ## MCP Server (Python)
 This repo includes a Python MCP server that exposes:
@@ -286,7 +286,7 @@ Add to your Claude Desktop `mcp.json`:
 ```
 {
   "mcpServers": {
-    "sample-mcp": {
+    "mcp-relay": {
       "command": "python",
       "args": ["-m", "mcp_server.server"],
       "env": {
@@ -302,8 +302,8 @@ Add to your Claude Desktop `mcp.json`:
 
 ### Run MCP Server (container)
 Build and run (note: MCP via stdio in a container requires appropriate stdio wiring by the client):
-- `docker build -t sample-mcp -f mcp-server/Dockerfile .`
-- `docker run --rm -e DATABASE_URL=... sample-mcp`
+- `docker build -t mcp-relay -f mcp-server/Dockerfile .`
+- `docker run --rm -e DATABASE_URL=... mcp-relay`
 
 ### Examples
 - Enhance arbitrary text: call tool `enhance_text` with `{ "text": "raw message..." }`.
@@ -458,7 +458,7 @@ These instructions assume you are using [Homebrew](https://brew.sh/) for package
 
 ## Notes
 - In dev, the frontend dev server proxies API requests to the backend container; in prod, Nginx inside the frontend image serves the built app and proxies `/api` to the backend service.
-- The sample includes an `echo_messages` table and Alembic migration as a template; the app doesn’t persist echoes by default to keep the sample simple.
+- MCP Relay includes an `echo_messages` table and Alembic migration as a template; the app doesn’t persist echoes by default to keep the starter simple.
 
 ## MCP Server (Python)
 This repo includes a Python MCP server that exposes:
@@ -493,7 +493,7 @@ Add to your Claude Desktop `mcp.json`:
 ```
 {
   "mcpServers": {
-    "sample-mcp": {
+    "mcp-relay": {
       "command": "python",
       "args": ["-m", "mcp_server.server"],
       "env": {
@@ -509,8 +509,8 @@ Add to your Claude Desktop `mcp.json`:
 
 ### Run MCP Server (container)
 Build and run (note: MCP via stdio in a container requires appropriate stdio wiring by the client):
-- `docker build -t sample-mcp -f mcp-server/Dockerfile .`
-- `docker run --rm -e DATABASE_URL=... sample-mcp`
+- `docker build -t mcp-relay -f mcp-server/Dockerfile .`
+- `docker run --rm -e DATABASE_URL=... mcp-relay`
 
 ### Examples
 - Enhance arbitrary text: call tool `enhance_text` with `{ "text": "raw message..." }`.

@@ -38,8 +38,8 @@ export default function App() {
 
   return (
     <div style={{ maxWidth: 640, margin: '3rem auto', fontFamily: 'Inter, system-ui, Arial' }}>
-      <h1>Vite + React + FastAPI</h1>
-      <p>Type a message and send it to the FastAPI backend:</p>
+      <h1>MCP Relay</h1>
+      <p>Type a message and send it to the FastAPI backend through the relay:</p>
       <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
         <input
           value={text}

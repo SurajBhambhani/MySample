@@ -52,7 +52,7 @@ run-frontend:
 
 run-mcp:
 	set -a; source .env; set +a; \
-	.venv-mcp/bin/python -m mcp_server.server
+	PYTHONPATH=mcp-server .venv-mcp/bin/python -m mcp_server.server
 
 test:
 	.venv/bin/pytest -q backend/tests mcp-server/tests
