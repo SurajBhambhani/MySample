@@ -7,7 +7,10 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 COPY mcp-server/requirements.txt ./requirements.txt
-RUN pip install --upgrade pip && pip install -r requirements.txt
+RUN apt-get update && apt-get install -y --no-install-recommends git \
+    && rm -rf /var/lib/apt/lists/* \
+    && pip install --upgrade pip \
+    && pip install -r requirements.txt
 
 COPY mcp-server/mcp_server ./mcp_server
 
@@ -20,4 +23,3 @@ ENV BACKEND_URL=http://localhost:8000 \
 # requires mapping stdin/stdout appropriately. This container is provided for
 # convenience; most clients will run `python -m mcp_server.server` directly.
 CMD ["python", "-m", "mcp_server.server"]
-
