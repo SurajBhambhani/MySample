@@ -26,8 +26,8 @@ class EnhanceIn(BaseModel):
 class EnhanceOut(BaseModel):
     original: str
     enhanced: str
-    message_id: int
-    enhanced_id: int
+    message_id: Optional[int] = None
+    enhanced_id: Optional[int] = None
     processing: Dict[str, Any]
 
 

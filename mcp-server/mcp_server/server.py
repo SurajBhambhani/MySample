@@ -26,6 +26,13 @@ def _database() -> Database:
     return Database(url)
 
 
+def _maybe_database() -> Optional[Database]:
+    try:
+        return _database()
+    except DatabaseError:
+        return None
+
+
 @lru_cache(maxsize=1)
 def _llm_provider():
     return create_provider(os.environ)
@@ -225,14 +232,26 @@ async def enhance_text_and_store(
     model: Optional[str] = None,
 ) -> str:
     system = instructions or "Rewrite the user's text to be clearer, concise, and readable without changing meaning."
-    try:
-        message_row = _database().execute(
-            "INSERT INTO echo_messages(content, created_at) VALUES (%s, NOW()) RETURNING id",
-            (text,),
-            returning=True,
-        )
-    except Exception as exc:
-        return _json_error(exc)
+    db = _maybe_database()
+    message_id: Optional[int] = None
+    enhanced_id: Optional[int] = None
+    storage_error: Optional[str] = None
+
+    if db is None:
+        storage_error = "Database not configured"
+    else:
+        try:
+            message_row = db.execute(
+                "INSERT INTO echo_messages(content, created_at) VALUES (%s, NOW()) RETURNING id",
+                (text,),
+                returning=True,
+            )
+            if message_row and "id" in message_row:
+                message_id = message_row["id"]
+            else:
+                storage_error = "Failed to insert echo message"
+        except Exception as exc:
+            storage_error = str(exc)
 
     messages = [
         {"role": "system", "content": system},
@@ -241,43 +260,45 @@ async def enhance_text_and_store(
     try:
         enhanced = await _llm_chat(messages, model=model)
     except Exception as exc:
-        return json.dumps(
-            {
-                "message_id": message_row["id"],
-                "original": text,
-                "error": str(exc),
-            }
-        )
+        payload: Dict[str, Any] = {
+            "message_id": message_id,
+            "original": text,
+            "error": str(exc),
+        }
+        if storage_error:
+            payload["storage_error"] = storage_error
+        return json.dumps(payload)
 
-    processing_details = {
+    processing_payload = {
         "instructions": system,
         "model": model,
         "provider": os.getenv("LLM_PROVIDER", "openai"),
     }
 
-    payload = json.dumps({"enhanced": enhanced, "processing": processing_details})
+    if db and storage_error is None and message_id is not None:
+        payload_to_store = json.dumps({"enhanced": enhanced, "processing": processing_payload})
+        try:
+            enhanced_row = db.execute(
+                "INSERT INTO echo_messages_enhanced (source_message_id, enhanced_content) VALUES (%s, %s) RETURNING id",
+                (message_id, payload_to_store),
+                returning=True,
+            )
+            if enhanced_row and "id" in enhanced_row:
+                enhanced_id = enhanced_row["id"]
+            else:
+                storage_error = "Failed to persist enhanced message"
+        except Exception as exc:
+            storage_error = str(exc)
 
-    try:
-        enhanced_row = _database().execute(
-            "INSERT INTO echo_messages_enhanced (source_message_id, enhanced_content) VALUES (%s, %s) RETURNING id",
-            (message_row["id"], payload),
-            returning=True,
-        )
-    except Exception as exc:
-        return json.dumps(
-            {
-                "message_id": message_row["id"],
-                "original": text,
-                "enhanced": enhanced,
-                "processing": processing_details,
-                "error": str(exc),
-            }
-        )
+    processing_details = dict(processing_payload)
+    processing_details["persisted"] = enhanced_id is not None
+    if storage_error:
+        processing_details["storage_error"] = storage_error
 
     return json.dumps(
         {
-            "message_id": message_row["id"],
-            "enhanced_id": enhanced_row["id"],
+            "message_id": message_id,
+            "enhanced_id": enhanced_id,
             "original": text,
             "enhanced": enhanced,
             "processing": processing_details,
