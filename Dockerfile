@@ -6,9 +6,14 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=1
 WORKDIR /tmp/backend
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends git \
+    && rm -rf /var/lib/apt/lists/*
 COPY backend/requirements.txt ./requirements.txt
+COPY mcp-server/requirements.txt ./requirements-mcp.txt
 RUN pip install --upgrade pip \
-    && pip install --no-cache-dir --prefix /install -r requirements.txt
+    && pip install --no-cache-dir --prefix /install -r requirements.txt \
+    && pip install --no-cache-dir --prefix /install -r requirements-mcp.txt
 
 # --- frontend build ---
 FROM node:20-alpine AS frontend-build
@@ -36,6 +41,7 @@ RUN apt-get update \
 
 COPY --from=backend-deps /install /usr/local
 COPY backend /app/backend
+COPY mcp-server /app/mcp-server
 COPY --from=frontend-build /app/dist /app/frontend/dist
 COPY docker/nginx.conf /etc/nginx/conf.d/default.conf
 COPY docker/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
