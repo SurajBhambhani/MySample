@@ -1,5 +1,5 @@
 from functools import lru_cache
-from typing import Any, List
+from typing import Any, List, Optional
 
 from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -13,7 +13,7 @@ class Settings(BaseSettings):
     api_host: str = Field("0.0.0.0", alias="API_HOST")
     api_port: int = Field(8000, alias="API_PORT")
 
-    database_url: str = Field(..., alias="DATABASE_URL")
+    database_url: Optional[str] = Field(None, alias="DATABASE_URL")
 
     cors_origins_raw: str = Field("*", alias="CORS_ORIGINS")
 

@@ -8,12 +8,20 @@ from .config import get_settings
 
 
 settings = get_settings()
-engine = create_engine(settings.database_url, pool_pre_ping=True, future=True)
-SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False, future=True)
+
+if settings.database_url:
+    engine = create_engine(settings.database_url, pool_pre_ping=True, future=True)
+    SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False, future=True)
+else:
+    engine = None
+    SessionLocal = None
 
 
 @contextmanager
 def session_scope() -> Iterator[SessionLocal]:
+    if SessionLocal is None:
+        raise RuntimeError("DATABASE_URL is not configured; database access is unavailable")
+
     session = SessionLocal()
     try:
         yield session
@@ -23,4 +31,3 @@ def session_scope() -> Iterator[SessionLocal]:
         raise
     finally:
         session.close()
-
