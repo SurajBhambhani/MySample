@@ -18,6 +18,7 @@ export type EnhanceResponse = {
     provider: string
     persisted?: boolean
     storage_error?: string
+    rag?: unknown
   }
 }
 
@@ -28,5 +29,63 @@ export async function echo(message: string): Promise<EchoResponse> {
 
 export async function enhance(body: EnhanceRequest): Promise<EnhanceResponse> {
   const res = await api.post<EnhanceResponse>('/api/enhance', body)
+  return res.data
+}
+
+export type RagImportRequest = {
+  urls?: string[]
+  texts?: string[]
+  store?: string
+  source_prefix?: string
+}
+
+export type RagImportItem = {
+  id: string
+  source?: string | null
+  store?: string | null
+}
+
+export type RagImportResponse = {
+  items: RagImportItem[]
+}
+
+export type RagSearchMatch = {
+  id: string
+  source?: string | null
+  store?: string | null
+  score: number
+  snippet: string
+}
+
+export type RagSearchResponse = {
+  results: RagSearchMatch[]
+}
+
+export async function ragGetStores(): Promise<string[]> {
+  const res = await api.get<string[]>('/api/rag/stores')
+  return res.data
+}
+
+export async function ragImport(payload: RagImportRequest): Promise<RagImportResponse> {
+  const res = await api.post<RagImportResponse>('/api/rag/import', payload)
+  return res.data
+}
+
+export async function ragUpload(files: File[], options: { store?: string; sourcePrefix?: string } = {}): Promise<RagImportResponse> {
+  const form = new FormData()
+  files.forEach((file) => form.append('files', file))
+  if (options.store) form.append('store', options.store)
+  if (options.sourcePrefix) form.append('source_prefix', options.sourcePrefix)
+  const res = await api.post<RagImportResponse>('/api/rag/upload', form, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  })
+  return res.data
+}
+
+export async function ragSearch(query: string, options: { limit?: number; store?: string } = {}): Promise<RagSearchResponse> {
+  const params: Record<string, string | number> = { query }
+  if (options.limit) params.limit = options.limit
+  if (options.store) params.store = options.store
+  const res = await api.get<RagSearchResponse>('/api/rag/search', { params })
   return res.data
 }

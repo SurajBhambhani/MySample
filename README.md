@@ -279,6 +279,7 @@ Environment variables:
   - Install and run [Ollama](https://ollama.com/) locally (`brew install ollama`, `ollama serve`)
   - Pull a model (e.g., `ollama pull llama3`)
   - Optional envs: `OLLAMA_ENDPOINT` (default `http://localhost:11434`), `OLLAMA_MODEL` (default `llama3`), `OLLAMA_OPTIONS` (JSON for generation options)
+- RAG knowledge base (used with Ollama embeddings): `RAG_ENABLED` (`true`/`false`), `RAG_DB_PATH` (SQLite path), `RAG_EMBED_MODEL` (defaults to `OLLAMA_MODEL`), `RAG_TOP_K` (matches injected into prompts), `RAG_SOURCES` (JSON array describing additional stores; supports `{"type":"sqlite","path":"/path/to/db"}` and `{"type":"memory","name":"notes"}`)
 
 ### Example client configuration (Claude Desktop)
 Add to your Claude Desktop `mcp.json`:
@@ -311,6 +312,7 @@ Build and run (note: MCP via stdio in a container requires appropriate stdio wir
 - Enhance last 5 DB messages: call tool `enhance_recent_messages` with `{ "limit": 5 }`.
 - Enhance one DB message and store: `enhance_message_and_store` with `{ "source_id": 42 }`.
 - List stored enhancements for a message: `list_enhanced_for_message` with `{ "source_id": 42 }`
+- RAG helpers: `rag_sources` (list configured stores), `rag_upsert` (direct text ingestion), `rag_import` (read from file/URL), `rag_search` (inspect matches)
 
 ### CLI shortcut for local testing
 - Ensure `.venv-mcp` is set up: `make setup-mcp PYTHON_BIN=/opt/homebrew/opt/python@3.11/bin/python3.11`

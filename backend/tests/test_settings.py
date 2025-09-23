@@ -34,12 +34,28 @@ def test_cors_parsing(monkeypatch, cors_value, expected):
     assert settings.cors_origins == expected
 
 
-def test_database_url_required(monkeypatch):
-    from pydantic import ValidationError
+def test_database_url_optional(monkeypatch):
+    """DATABASE_URL can be unset and surface as None."""
+
+    _with_env(monkeypatch, DATABASE_URL=None)
+
+    get_settings.cache_clear()
+    settings = get_settings()
+
+    assert settings.database_url is None
+
+
+def test_session_scope_without_database_fails(monkeypatch):
+    import importlib
+    import sys
 
     _with_env(monkeypatch, DATABASE_URL=None)
 
     get_settings.cache_clear()
 
-    with pytest.raises(ValidationError):
-        Settings(_env_file=None)  # type: ignore[call-arg]
+    sys.modules.pop("app.db", None)
+    db_module = importlib.import_module("app.db")
+
+    with pytest.raises(RuntimeError):
+        with db_module.session_scope():
+            pass

@@ -2,6 +2,7 @@ import json
 import os
 import subprocess
 from functools import lru_cache
+from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 import httpx
@@ -11,6 +12,7 @@ from mcp.server import FastMCP
 
 from mcp_server.database import Database, DatabaseError, ensure_select_only
 from mcp_server.llm import LLMError, create_provider
+from mcp_server.rag_store import RAGError, build_default_store
 
 
 load_dotenv()
@@ -38,6 +40,17 @@ def _llm_provider():
     return create_provider(os.environ)
 
 
+def _rag_enabled() -> bool:
+    return os.getenv("RAG_ENABLED", "true").lower() not in {"0", "false", "no"}
+
+
+@lru_cache(maxsize=1)
+def _rag_store():
+    if not _rag_enabled():
+        raise RAGError("RAG is disabled via RAG_ENABLED")
+    return build_default_store()
+
+
 async def _llm_chat(messages: List[Dict[str, str]], *, model: Optional[str] = None) -> str:
     provider = _llm_provider()
     try:
@@ -50,6 +63,53 @@ async def _llm_chat(messages: List[Dict[str, str]], *, model: Optional[str] = No
 
 def _json_error(exc: Exception) -> str:
     return json.dumps({"error": str(exc)})
+
+
+async def _inject_rag_context(query: str, messages: List[Dict[str, str]]) -> Optional[Dict[str, Any]]:
+    if not _rag_enabled():
+        return {"enabled": False}
+    try:
+        store = _rag_store()
+    except RAGError as exc:
+        return {"enabled": False, "error": str(exc)}
+
+    try:
+        limit = int(os.getenv("RAG_TOP_K", "3"))
+    except ValueError:
+        limit = 3
+
+    try:
+        results = await store.query(text=query, limit=limit)
+    except Exception as exc:  # pragma: no cover - defensive
+        return {"enabled": True, "error": str(exc)}
+
+    if not results:
+        return {"enabled": True, "matches": []}
+
+    context_lines: List[str] = []
+    matches: List[Dict[str, Any]] = []
+    for doc in results:
+        label = doc.source or doc.store or f"doc#{doc.id}"
+        store_name = doc.store or getattr(store, "name", "default")
+        context_lines.append(f"[{label}] (store={store_name})\n{doc.content}")
+        matches.append(
+            {
+                "id": doc.id,
+                "source": doc.source,
+                "store": store_name,
+                "score": round(doc.score, 4),
+            }
+        )
+
+    messages.insert(
+        1,
+        {
+            "role": "system",
+            "content": "Knowledge base context you may cite if useful:\n" + "\n\n".join(context_lines),
+        },
+    )
+
+    return {"enabled": True, "matches": matches}
 
 
 @mcp.tool(name="health", description="Checks backend /healthz endpoint and returns status")
@@ -145,6 +205,111 @@ async def compose_down_prod() -> str:
     return _run(["docker", "compose", "-f", "docker-compose.prod.yml", "down"], cwd=infra_dir)
 
 
+@mcp.tool(name="rag_upsert", description="Insert or update text in the RAG knowledge base")
+async def rag_upsert(content: str, source: Optional[str] = None, store: Optional[str] = None) -> str:
+    try:
+        rag_store = _rag_store()
+    except Exception as exc:  # pragma: no cover - cache errors
+        return _json_error(exc)
+
+    try:
+        doc_id = await rag_store.upsert(source=source, content=content, store=store)
+        resolved_store = store
+        if not resolved_store:
+            if ":" in doc_id:
+                resolved_store = doc_id.split(":", 1)[0]
+            else:
+                resolved_store = getattr(rag_store, "name", None)
+        payload = {"id": doc_id, "source": source, "store": resolved_store}
+        return json.dumps(payload)
+    except Exception as exc:
+        return _json_error(exc)
+
+
+@mcp.tool(name="rag_search", description="Search the RAG knowledge base for relevant entries")
+async def rag_search(query: str, limit: int = 3, store: Optional[str] = None) -> str:
+    try:
+        rag_store = _rag_store()
+    except Exception as exc:
+        return _json_error(exc)
+
+    try:
+        selected = None
+        if store:
+            selected = [item.strip() for item in store.split(",") if item.strip()]
+        results = await rag_store.query(text=query, limit=limit, stores=selected)
+        return json.dumps(
+            [
+                {
+                    "id": doc.id,
+                    "source": doc.source,
+                    "content": doc.content,
+                    "store": doc.store,
+                    "score": round(doc.score, 4),
+                }
+                for doc in results
+            ]
+        )
+    except Exception as exc:
+        return _json_error(exc)
+
+
+@mcp.tool(name="rag_sources", description="List configured RAG store identifiers")
+async def rag_sources() -> str:
+    try:
+        rag_store = _rag_store()
+    except Exception as exc:
+        return _json_error(exc)
+
+    names = getattr(rag_store, "store_names", None)
+    if names is None:
+        names = [getattr(rag_store, "name", "default")]
+    return json.dumps(names)
+
+
+@mcp.tool(
+    name="rag_import",
+    description="Load content from a local file path or HTTP(S) URL into the RAG knowledge base",
+)
+async def rag_import(location: str, store: Optional[str] = None, source: Optional[str] = None) -> str:
+    try:
+        store_instance = _rag_store()
+    except Exception as exc:
+        return _json_error(exc)
+
+    if location.startswith("http://") or location.startswith("https://"):
+        try:
+            async with httpx.AsyncClient(timeout=30) as client:
+                resp = await client.get(location)
+                resp.raise_for_status()
+                content = resp.text
+        except Exception as exc:
+            return _json_error(exc)
+        resolved_source = source or location
+    else:
+        path = Path(location).expanduser()
+        if not path.exists():
+            return _json_error(RAGError(f"File not found: {path}"))
+        try:
+            content = path.read_text(encoding="utf-8")
+        except Exception as exc:
+            return _json_error(exc)
+        resolved_source = source or str(path)
+
+    try:
+        doc_id = await store_instance.upsert(source=resolved_source, content=content, store=store)
+        resolved_store = store
+        if not resolved_store:
+            if ":" in doc_id:
+                resolved_store = doc_id.split(":", 1)[0]
+            else:
+                resolved_store = getattr(store_instance, "name", None)
+        payload = {"id": doc_id, "source": resolved_source, "store": resolved_store}
+        return json.dumps(payload)
+    except Exception as exc:
+        return _json_error(exc)
+
+
 @mcp.tool(
     name="enhance_message_and_store",
     description=(
@@ -165,11 +330,15 @@ async def enhance_message_and_store(
     if not row:
         return json.dumps({"error": f"echo_message id {source_id} not found"})
 
-    system = instructions or "Rewrite the user's text to be clearer, concise, and readable without changing meaning."
+    system = instructions or (
+        "Act as a support engineer. Using any knowledge base context provided, identify the root cause of the"
+        " user's issue and outline concrete resolution steps. If the context is insufficient, say so explicitly."
+    )
     messages = [
         {"role": "system", "content": system},
         {"role": "user", "content": row["content"]},
     ]
+    rag_info = await _inject_rag_context(row["content"], messages)
     try:
         enhanced = await _llm_chat(messages, model=model)
     except Exception as exc:
@@ -187,7 +356,14 @@ async def enhance_message_and_store(
     if not result:
         return json.dumps({"error": "Failed to persist enhanced message"})
 
-    return json.dumps({"source_id": source_id, "enhanced_id": result["id"], "enhanced_content": enhanced})
+    response: Dict[str, Any] = {
+        "source_id": source_id,
+        "enhanced_id": result["id"],
+        "enhanced_content": enhanced,
+    }
+    if rag_info:
+        response["rag"] = rag_info
+    return json.dumps(response)
 
 
 @mcp.tool(name="list_enhanced_for_message", description="List enhanced records for a given echo_messages.id")
@@ -210,14 +386,21 @@ async def list_enhanced_for_message(source_id: int, limit: int = 10) -> str:
 
 @mcp.tool(name="enhance_text", description="Use LLM to rewrite text to be clearer and more readable")
 async def enhance_text(text: str, instructions: Optional[str] = None, model: Optional[str] = None) -> str:
-    system = instructions or "Rewrite the user's text to be clearer, concise, and readable without changing meaning."
+    system = instructions or (
+        "Act as a support engineer. Using any knowledge base context provided, identify the root cause of the"
+        " user's issue and outline concrete resolution steps. If the context is insufficient, say so explicitly."
+    )
     messages = [
         {"role": "system", "content": system},
         {"role": "user", "content": text},
     ]
+    rag_info = await _inject_rag_context(text, messages)
     try:
         improved = await _llm_chat(messages, model=model)
-        return json.dumps({"original": text, "enhanced": improved})
+        payload = {"original": text, "enhanced": improved}
+        if rag_info:
+            payload["rag"] = rag_info
+        return json.dumps(payload)
     except Exception as exc:
         return _json_error(exc)
 
@@ -231,7 +414,10 @@ async def enhance_text_and_store(
     instructions: Optional[str] = None,
     model: Optional[str] = None,
 ) -> str:
-    system = instructions or "Rewrite the user's text to be clearer, concise, and readable without changing meaning."
+    system = instructions or (
+        "Act as a support engineer. Using any knowledge base context provided, identify the root cause of the"
+        " user's issue and outline concrete resolution steps. If the context is insufficient, say so explicitly."
+    )
     db = _maybe_database()
     message_id: Optional[int] = None
     enhanced_id: Optional[int] = None
@@ -257,6 +443,7 @@ async def enhance_text_and_store(
         {"role": "system", "content": system},
         {"role": "user", "content": text},
     ]
+    rag_info = await _inject_rag_context(text, messages)
     try:
         enhanced = await _llm_chat(messages, model=model)
     except Exception as exc:
@@ -265,6 +452,8 @@ async def enhance_text_and_store(
             "original": text,
             "error": str(exc),
         }
+        if rag_info:
+            payload["rag"] = rag_info
         if storage_error:
             payload["storage_error"] = storage_error
         return json.dumps(payload)
@@ -274,6 +463,8 @@ async def enhance_text_and_store(
         "model": model,
         "provider": os.getenv("LLM_PROVIDER", "openai"),
     }
+    if rag_info:
+        processing_payload["rag"] = rag_info
 
     if db and storage_error is None and message_id is not None:
         payload_to_store = json.dumps({"enhanced": enhanced, "processing": processing_payload})
